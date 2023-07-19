@@ -8,7 +8,7 @@ This example assumes a platform ECS service has been created for the "dats" proj
 
 ```terraform
 module "dats_codepipeline" {
-  source = "github.com/AllenInstitute/platform-terraform-modules/ecs-codepipeline"
+  source = "github.com/jessicamalloy/terraform-modules/ecs-codepipeline"
   project_name       = var.project_name
   aws_account_id     = var.aws_account_id
   region             = var.region
@@ -29,7 +29,7 @@ This example is similar to the example above, except it includes a validation st
 
 ```terraform
 module "dats_codepipeline" {
-  source = "github.com/AllenInstitute/platform-terraform-modules/ecs-codepipeline"
+  source = "github.com/jessicamalloy/terraform-modules/ecs-codepipeline"
   project_name       = var.project_name
   aws_account_id     = var.aws_account_id
   region             = var.region
@@ -58,7 +58,7 @@ module "dats_codepipeline" {
 
 ```terraform
 module "sfs_codepipeline" {
-  source = "github.com/AllenInstitute/platform-terraform-modules/ecs-codepipeline"
+  source = "github.com/jessicamalloy/terraform-modules/ecs-codepipeline"
   project_name       = var.project_name
   aws_account_id     = var.aws_account_id
   region             = var.region

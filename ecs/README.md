@@ -15,7 +15,7 @@ variable "project_name" {
 }
 
 module "dats_vpc" {
-    source       = "github.com/AllenInstitute/platform-terraform-modules/vpc"
+    source       = "github.com/jessicamalloy/terraform-modules/vpc"
     project_name = var.project_name
 }
 ```
@@ -24,7 +24,7 @@ module "dats_vpc" {
  * Creates new ECS using fargate launch type with default settings.  This example adds one custom environment variable for the secret id containing database information.
  */
 module "dats_ecs" {
-  source = "github.com/AllenInstitute/platform-terraform-modules/ecs"
+  source = "github.com/jessicamalloy/terraform-modules/ecs"
   project_name       = var.project_name
   domain_name        = "myDomainName.net"
   aws_account_id     = "awsAccountId"
@@ -45,7 +45,7 @@ module "dats_ecs" {
  * Creates new ECS using fargate launch type with default settings.  Additional project setting to open inbound ports to all.
  */
 module "dats_ecs" {
-  source = "github.com/AllenInstitute/platform-terraform-modules/ecs"
+  source = "github.com/jessicamalloy/terraform-modules/ecs"
   project_name       = var.project_name
   domain_name        = "myDomainName.net"
   aws_account_id     = "awsAccountId"

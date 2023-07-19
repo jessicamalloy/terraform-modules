@@ -10,7 +10,7 @@ This example assumes a platform ECS service has been created for the "dats" proj
 
 ```terraform
 module "smoke_test_sfn" {
-  source = "github.com/AllenInstitute/platform-terraform-modules/smoke-test-sfn"
+  source = "github.com/jessicamalloy/terraform-modules/smoke-test-sfn"
   project_name              = var.project_name
   aws_account_id            = var.aws_account_id
   region                    = var.region

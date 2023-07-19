@@ -14,7 +14,7 @@ variable "project_name" {
   default     = "dats"
 }
 module "dats_vpc" {
-    source       = "github.com/AllenInstitute/platform-terraform-modules/vpc"
+    source       = "github.com/jessicamalloy/terraform-modules/vpc"
     project_name = var.project_name
 }
 ```
@@ -23,7 +23,7 @@ module "dats_vpc" {
  * Creates new RDS postgres instance
  */
 module "dats_db" {
-  source = "github.com/AllenInstitute/platform-terraform-modules/rds"
+  source = "github.com/jessicamalloy/terraform-modules/rds"
   project_name       = var.project_name
   database_name      = "${var.project_name}_main"
   database_username  = "${var.project_name}_admin"
@@ -37,7 +37,7 @@ module "dats_db" {
  * Creates RDS postgres instance from snapshot.
  */
 module "dats_db" {
-  source = "github.com/AllenInstitute/platform-terraform-modules/rds"
+  source = "github.com/jessicamalloy/terraform-modules/rds"
   project_name        = var.project_name
   database_name       = "${var.project_name}_main"
   database_username   = "${var.project_name}_admin"
@@ -53,7 +53,7 @@ module "dats_db" {
  * Creates RDS postgres instance with version specified.
  */
 module "sfs_db" {
-  source = "github.com/AllenInstitute/platform-terraform-modules/rds"
+  source = "github.com/jessicamalloy/terraform-modules/rds"
   project_name                         = var.project_name
   database_name                        = "${var.project_name}_main"
   database_username                    = "${var.project_name}_admin"

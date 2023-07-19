@@ -1,5 +1,5 @@
 module "secrets_manager" {
-  source        = "github.com/AllenInstitute/platform-terraform-modules/secrets-manager"
+  source        = "github.com/jessicamalloy/terraform-modules/secrets-manager"
   name_prefix   = "terraform"
   secret_string = jsonencode(local.db_creds)
 

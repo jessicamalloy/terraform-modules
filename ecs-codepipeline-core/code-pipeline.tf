@@ -1,5 +1,5 @@
 module "code_build" {
-  source                = "github.com/AllenInstitute/platform-terraform-modules/ecs-codebuild"
+  source                = "github.com/jessicamalloy/terraform-modules/ecs-codebuild"
   project_name          = var.project_name
   aws_account_id        = var.aws_account_id
   region                = var.region

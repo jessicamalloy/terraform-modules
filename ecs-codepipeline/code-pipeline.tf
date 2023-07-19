@@ -6,7 +6,7 @@ data "template_file" "buildspec" {
 }
 
 module "codepipeline" {
-  source              = "github.com/AllenInstitute/platform-terraform-modules/ecs-codepipeline-core"
+  source              = "github.com/jessicamalloy/terraform-modules/ecs-codepipeline-core"
   project_name        = var.project_name
   aws_account_id      = var.aws_account_id
   region              = var.region

@@ -1,5 +1,5 @@
 module "secrets_manager" {
-    source = "github.com/AllenInstitute/platform-terraform-modules/secrets-manager"
+    source = "github.com/jessicamalloy/terraform-modules/secrets-manager"
 
     name_prefix   = "${var.project_name}-neo4j-${var.neo4j_edition}"
     description = "${var.project_name} Neo4j graph database credentials."
@@ -14,7 +14,7 @@ module "secrets_manager" {
 }
 
 module "neo4j_ec2_ssh" {
-  source = "github.com/AllenInstitute/platform-terraform-modules/secrets-manager"
+  source = "github.com/jessicamalloy/terraform-modules/secrets-manager"
 
   name_prefix = "${var.project_name}-neo4j-ec2-key-pair"
   description = "${var.project_name} Neo4j EC2 instance SSH key-pair info."
