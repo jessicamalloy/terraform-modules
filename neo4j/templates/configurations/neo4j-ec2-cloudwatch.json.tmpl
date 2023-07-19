@@ -1,0 +1,45 @@
+{
+    "agent": {
+        "metrics_collection_interval": 10,
+        "logfile": "/opt/aws/amazon-cloudwatch-agent/logs/${ec2_cw_agent}"
+    },
+    "logs": {
+        "logs_collected": {
+            "files": {
+                "collect_list": [
+                    {
+                        "file_path": "/opt/aws/amazon-cloudwatch-agent/logs/${ec2_cw_agent}",
+                        "log_group_name": "/aws/ec2/${project_name}/neo4j/${ec2_cw_agent}",
+                        "log_stream_name": "{hostname}/${ec2_cw_agent}",
+                        "timestamp_format": "%b %d %H:%M:%S"
+                    },
+                    {
+                        "file_path": "/var/log/${neo4j_nightly_backup}",
+                        "log_group_name": "/aws/ec2/${project_name}/neo4j/${neo4j_nightly_backup}",
+                        "log_stream_name": "{hostname}/${neo4j_nightly_backup}",
+                        "timestamp_format": "%b %d %H:%M:%S"
+                    },
+                    {
+                        "file_path": "/var/log/${neo4j_setup}",
+                        "log_group_name": "/aws/ec2/${project_name}/neo4j/${neo4j_setup}",
+                        "log_stream_name": "{hostname}/${neo4j_setup}",
+                        "timestamp_format": "%b %d %H:%M:%S"
+                    },
+                    {
+                        "file_path": "/var/log/neo4j/${neo4j_logs}",
+                        "log_group_name": "/aws/ec2/${project_name}/neo4j/${neo4j_logs}",
+                        "log_stream_name": "{hostname}/${neo4j_logs}",
+                        "timestamp_format": "%b %d %H:%M:%S"
+                    },
+                    {
+                        "file_path": "/var/log/neo4j/${neo4j_debug_logs}",
+                        "log_group_name": "/aws/ec2/${project_name}/neo4j/${neo4j_debug_logs}",
+                        "log_stream_name": "{hostname}/${neo4j_debug_logs}",
+                        "timestamp_format": "%b %d %H:%M:%S"
+                    }
+                ]
+            }
+        },
+        "log_stream_name": "{hostname}/catchall"
+    }
+}

@@ -1,0 +1,47 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - apt-get update
+      - apt-get install --yes --no-install-recommends postgresql-client libpq-dev
+      - psql --version
+      ${extra_install_steps}
+      - dotnet --version
+  pre_build:
+    commands:
+      - echo Logging in to Docker...
+      - echo $DOCKER_LOGIN_TOKEN | docker login --username $DOCKER_USERNAME --password-stdin
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - echo $REPOSITORY_URI
+      - echo Logging in to Amazon ECR...
+      - aws ecr get-login-password | docker login --username AWS --password-stdin $REPOSITORY_URI
+      - IMAGE_TAG=$${COMMIT_HASH:=latest}
+      - dotnet nuget add source --username $GITHUB_USERNAME --password $GITHUB_ACCESS_TOKEN --store-password-in-clear-text --name github "https://nuget.pkg.github.com/AllenInstitute/index.json"
+  build:
+    commands:
+      - PROJECT_FILE=./src/$PROJECT_DIRECTORY/$${PROJECT_DIRECTORY}.csproj
+      - echo $PROJECT_FILE
+      - dotnet restore
+      - dotnet tool restore
+      - dotnet test --no-restore --verbosity normal
+      - dotnet publish $PROJECT_FILE -c release -o ./app --no-restore -warnaserror
+      - echo Build started on `date`
+      - echo Building the Docker image...
+      - docker build -t $REPOSITORY_URI:latest .
+      - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG
+  post_build:
+    commands:
+      - echo Build completed on `date`
+      - echo Pushing the Docker images...
+      - docker push $REPOSITORY_URI:latest
+      - docker push $REPOSITORY_URI:$IMAGE_TAG
+      - echo Writing image definitions file...
+      - printf '[{"name":"%s","imageUri":"%s"}]' $ECS_CONTAINER $REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
+
+      - dotnet ef migrations script --output schema.sql --context $${PROJECT_DIRECTORY}Context --project src/$PROJECT_DIRECTORY --idempotent
+      - psql "dbname=$DB_NAME host=$DB_HOST user=$DB_USER password=$DB_PASSWORD port=$DB_PORT" -f schema.sql
+artifacts:
+  type: zip
+  files:
+    - imagedefinitions.json

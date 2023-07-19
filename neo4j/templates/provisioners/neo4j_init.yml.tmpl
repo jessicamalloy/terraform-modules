@@ -1,0 +1,147 @@
+package_reboot_if_required: true
+
+bootcmd:
+  # Install Neo4j
+  - echo 'Installing Graph Database...'
+  - wget -O - https://debian.neo4j.com/neotechnology.gpg.key | apt-key add -
+  - majorMinorVersion=$(echo ${version} | cut -d'.' -f 1-2)
+  - echo "deb https://debian.neo4j.com stable $majorMinorVersion" | tee -a /etc/apt/sources.list.d/neo4j.list
+  - apt-get update
+  - apt install -y cypher-shell=1:${version}
+  - apt install -y neo4j=1:${version}
+  # Install AWS CLI
+  - echo 'Installing AWS CLI...'
+  - apt install -y awscli=1.22.34-1
+
+write_files:
+  - encoding: b64
+    content: ${neo4j_tools_content}
+    owner: root:root
+    path: /usr/local/bin/neo4j-tools
+    permissions: '0755'
+  - content: |
+      apoc.import.file.enabled=true
+      apoc.import.file.use_neo4j_config=true
+      apoc.trigger.enabled=true
+    owner: neo4j:adm
+    path: /etc/neo4j/apoc.conf
+  # Perform a data backup every night at 1:00 AM (PST).
+  - content: |
+      0 8 * * * root /usr/local/bin/neo4j-tools backup -db 'neo4j' -s3 '${s3_backup}' -d '/root/neo4j-nightly-backups' --storage-class 'STANDARD_IA' -v | tee -a /var/log/${neo4j_nightly_backup}
+    owner: root:root
+    path: /etc/cron.d/neo4j-nightly-backup
+    permissions: '0644'
+  - content: |
+      /var/log/${neo4j_nightly_backup} {
+        weekly
+        create 0644 root root
+        rotate 5
+        size 10M
+        compress
+        delaycompress
+      }
+    owner: root:root
+    path: /etc/logrotate.d/${neo4j_nightly_backup}
+    permissions: '0644'
+  # Sets the ulimit for the amount of open files recommended by Neo4J
+  - content: |
+      *     soft  nofile  60000
+      *     hard  nofile  60000
+      root  soft  nofile  60000
+      root  hard  nofile  60000
+    path: /etc/security/limits.conf
+    append: true
+  - encoding: b64
+    content: ${neo4j_ec2_cw_config}
+    owner: root:root
+    path: /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+    permissions: '0644'
+
+runcmd:
+  - LOGFILE=/var/log/${neo4j_setup}
+
+  - env | tee -a $LOGFILE
+
+  - systemctl enable neo4j | tee -a $LOGFILE
+
+  # Install the CloudWatch agent
+  - wget https://s3.amazonaws.com/amazoncloudwatch-agent/debian/amd64/latest/amazon-cloudwatch-agent.deb | tee -a $LOGFILE
+  - dpkg -i -E amazon-cloudwatch-agent.deb | tee -a $LOGFILE
+
+  # Cleanup/remove the debian package as it's used only for install
+  - rm amazon-cloudwatch-agent.deb | tee -a $LOGFILE
+
+  # Start the CloudWatch Agent
+  - systemctl enable amazon-cloudwatch-agent.service | tee -a $LOGFILE
+  - systemctl start amazon-cloudwatch-agent.service | tee -a $LOGFILE
+
+  - /usr/local/bin/neo4j-tools log --info "Preparing Standalone Neo4j Node..." | tee -a $LOGFILE
+
+  # create backups dir in root home dir
+  - mkdir /root/neo4j-nightly-backups 2&>1 | tee -a $LOGFILE
+
+  # Install neosemantics (n10s) plugin
+  - /usr/local/bin/neo4j-tools add-plugin --url "https://github.com/neo4j-labs/neosemantics/releases/download/${n10s_plugin_version}/neosemantics-${n10s_plugin_version}.jar" | tee -a $LOGFILE
+
+  # Install apoc plugin
+  - /usr/local/bin/neo4j-tools add-plugin --url "https://github.com/neo4j-contrib/neo4j-apoc-procedures/releases/download/${apoc_plugin_version}/apoc-${apoc_plugin_version}-all.jar" | tee -a $LOGFILE
+
+  # Create sll certificates
+  - echo 'Configuring SSL paths and certs...' | tee -a $LOGFILE
+  - mkdir /var/lib/neo4j/certificates/https/ | tee -a $LOGFILE
+  - mkdir /var/lib/neo4j/certificates/https/revoked/ | tee -a $LOGFILE
+  - mkdir /var/lib/neo4j/certificates/https/trusted/ | tee -a $LOGFILE
+  - mkdir /var/lib/neo4j/certificates/bolt/ | tee -a $LOGFILE
+  - mkdir /var/lib/neo4j/certificates/bolt/revoked/ | tee -a $LOGFILE
+  - mkdir /var/lib/neo4j/certificates/bolt/trusted/ | tee -a $LOGFILE
+  - openssl req -x509 -nodes -days 730 -newkey rsa:2048 -keyout /var/lib/neo4j/certificates/https/private.key -out /var/lib/neo4j/certificates/https/public.crt -subj "/C=US/ST=Washington/L=Seattle/O=The Allen Institute for Brain Science/CN=${base_domain}" | tee -a $LOGFILE
+  - cp /var/lib/neo4j/certificates/https/public.crt /var/lib/neo4j/certificates/https/trusted/public.crt | tee -a $LOGFILE
+  - cp /var/lib/neo4j/certificates/https/private.key /var/lib/neo4j/certificates/bolt/private.key | tee -a $LOGFILE
+  - cp /var/lib/neo4j/certificates/https/public.crt /var/lib/neo4j/certificates/bolt/public.crt | tee -a $LOGFILE
+  - cp /var/lib/neo4j/certificates/https/public.crt /var/lib/neo4j/certificates/bolt/trusted/public.crt | tee -a $LOGFILE
+  - chmod -R g+rx /var/lib/neo4j/certificates | tee -a $LOGFILE
+  - chown neo4j:neo4j /var/lib/neo4j/certificates/https/private.key | tee -a $LOGFILE
+  - chown neo4j:neo4j /var/lib/neo4j/certificates/https/public.crt | tee -a $LOGFILE
+  - chown neo4j:neo4j /var/lib/neo4j/certificates/bolt/private.key | tee -a $LOGFILE
+  - chown neo4j:neo4j /var/lib/neo4j/certificates/bolt/public.crt | tee -a $LOGFILE
+
+  # Set the neo4j config
+  - echo 'Configuring neo4j.conf...' | tee -a $LOGFILE
+  - /usr/local/bin/neo4j-tools config --set "#dbms.unmanaged_extension_classes=org.neo4j.examples.server.unmanaged=/examples/unmanaged" "dbms.unmanaged_extension_classes=n10s.endpoint=/rdf" | tee -a $LOGFILE
+  - /usr/local/bin/neo4j-tools config --set "#dbms.security.procedures.unrestricted=my.extensions.example,my.procedures.*" "dbms.security.procedures.unrestricted=apoc.*" | tee -a $LOGFILE
+
+  - /usr/local/bin/neo4j-tools config --set "#dbms.security.allow_csv_import_from_file_urls=true" "dbms.security.allow_csv_import_from_file_urls=true" | tee -a $LOGFILE
+  - /usr/local/bin/neo4j-tools config --set "#dbms.security.auth_enabled=false" "dbms.security.auth_enabled=true" | tee -a $LOGFILE
+
+  - /usr/local/bin/neo4j-tools config --set "#dbms.memory.heap.initial_size=512m" "dbms.memory.heap.initial_size=5g" | tee -a $LOGFILE
+  - /usr/local/bin/neo4j-tools config --set "#dbms.memory.heap.max_size=512m" "dbms.memory.heap.max_size=5g" | tee -a $LOGFILE
+  - /usr/local/bin/neo4j-tools config --set "#dbms.memory.pagecache.size=10g" "dbms.memory.pagecache.size=7g" | tee -a $LOGFILE
+
+  # Get public/private IP to add to config
+  - publicIP=$(hostname -i | awk '{print $NF}')
+  - priviateIP=$(wget -O - -q http://169.254.169.254/latest/meta-data/public-ipv4)
+
+  - /usr/local/bin/neo4j-tools config --set "#dbms.default_listen_address=0.0.0.0" "dbms.default_listen_address=0.0.0.0" | tee -a $LOGFILE
+  - /usr/local/bin/neo4j-tools config --set "#dbms.default_advertised_address=localhost" "dbms.default_advertised_address=${neo4j_domain}" | tee -a $LOGFILE
+
+  - /usr/local/bin/neo4j-tools config --set "#dbms.connector.bolt.tls_level=DISABLED" "dbms.connector.bolt.tls_level=OPTIONAL" | tee -a $LOGFILE
+  - /usr/local/bin/neo4j-tools config --set "#dbms.connector.bolt.listen_address=:7687" "dbms.connector.bolt.advertised_address=$priviateIP:7687" | tee -a $LOGFILE
+
+  - /usr/local/bin/neo4j-tools config --set "#dbms.connector.http.advertised_address=:7474" "dbms.connector.http.advertised_address=:7474" | tee -a $LOGFILE
+  - /usr/local/bin/neo4j-tools config --set "#dbms.connector.http.listen_address=:7474" "dbms.connector.http.listen_address=0.0.0.0:7474" | tee -a $LOGFILE
+  - /usr/local/bin/neo4j-tools config --set "#dbms.connector.https.advertised_address=:7473" "dbms.connector.https.advertised_address=:7473" | tee -a $LOGFILE
+  - /usr/local/bin/neo4j-tools config --set "#dbms.connector.https.listen_address=:7473" "dbms.connector.https.listen_address=0.0.0.0:7473" | tee -a $LOGFILE
+  
+  - /usr/local/bin/neo4j-tools config --set "#dbms.ssl.policy.https.enabled=true" "dbms.ssl.policy.https.enabled=true" | tee -a $LOGFILE
+  - /usr/local/bin/neo4j-tools config --set "#dbms.ssl.policy.https.base_directory=certificates/https" "dbms.ssl.policy.https.base_directory=/var/lib/neo4j/certificates/https" | tee -a $LOGFILE
+  - /usr/local/bin/neo4j-tools config --set "#dbms.ssl.policy.https.client_auth=NONE" "dbms.ssl.policy.https.client_auth=NONE" | tee -a $LOGFILE
+
+  - /usr/local/bin/neo4j-tools config --set "#dbms.ssl.policy.bolt.enabled=true" "dbms.ssl.policy.bolt.enabled=true" | tee -a $LOGFILE
+  - /usr/local/bin/neo4j-tools config --set "#dbms.ssl.policy.bolt.base_directory=certificates/bolt" "dbms.ssl.policy.bolt.base_directory=/var/lib/neo4j/certificates/bolt" | tee -a $LOGFILE
+  - /usr/local/bin/neo4j-tools config --set "#dbms.ssl.policy.bolt.client_auth=NONE" "dbms.ssl.policy.bolt.client_auth=NONE" | tee -a $LOGFILE
+
+  - /bin/rm -rf /var/lib/neo4j/data/databases/graph.db 2>&1 | tee -a $LOGFILE
+
+  - /usr/bin/neo4j-admin set-initial-password "${neo4j_password}" | tee -a $LOGFILE
+
+  - /usr/local/bin/neo4j-tools start | tee -a $LOGFILE

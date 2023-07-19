@@ -1,0 +1,465 @@
+#!/usr/bin/env bash
+set -e
+
+today=$(date +"%Y-%m-%d %T.%3N%z")
+
+function __help
+{
+  echo "neo4j-tools: [start] [stop] [backup] [restore] [log] [add-plugin] [config] [help]"
+  echo
+  echo "  start        Starts the Neo4J service up."
+  echo "  stop         Stops the Neo4J service."
+  echo "  backup       Does an offline backup of the Neo4J service."
+  echo "  restore      Does an offline restore of the Neo4J service"
+  echo "  log          Outputs a log message."
+  echo "  add-plugin   Adds plugins to the Neo4J service."
+  echo "  config       Define configuration settings for Neo4J."
+  echo "  help         Show help message."
+  echo
+  exit 0
+}
+
+function __backup_help
+{
+  echo "neo4j-tools backup: [-s3 S3BUCKET, --s3_bucket S3BUCKET]"
+  echo "                    [-d BACKUPDIR, --directory BACKUPDIR]"
+  echo "                    [-db DATABASE, --database DATABASE]"
+  echo "                    [--storage-class S3STORAGECLASS]"
+  echo "                    [-h, --help]"
+  echo
+  echo "  -s3                S3 bucket to store backups in."
+  echo "  -d                 Local directory to create backups in."
+  echo "  -db                Database to perform consistency check and backup on."
+  echo "  --storage-class    S3 storage class. Defaults to 'STANDARD' Valid options:"
+  echo "                           [ STANDARD            | REDUCED_REDUNDANCY ]"
+  echo "                           [ STANDARD_IA         | ONEZONE_IA         ]"
+  echo "                           [ INTELLIGENT_TIERING | GLACIER            ]"
+  echo "                           [ DEEP_ARCHIVE        |                    ]"
+  echo "  -h                 Show help message."
+  echo "  -v                 Verbose output."
+  echo
+  exit 0
+}
+
+function __restore_help
+{
+  echo "neo4j-tools restore: [-d RESTOREDIR, --directory RESTOREDIR]"
+  echo "                     [-db DATABASE, --database DATABASE]"
+  echo "                     [-h, --help]"
+  echo
+  echo "  -d      Local directory or s3 directory where the dump file exists."
+  echo "  -h      Show help message."
+  echo "  -v      Verbose output."
+  echo
+  exit 0
+}
+
+function __log_help
+{
+  echo "neo4j-tools log: [-i INFO, --info INFO]"
+  echo "                 [-d DEBUG, --debug DEBUG]"
+  echo "                 [-e ERROR, --error ERROR]"
+  echo "                 [-h, --help]"
+  echo
+  echo "  -i     Log info messages."
+  echo "  -d     Log debug messages."
+  echo "  -e     Log error messages."
+  echo "  -h     Show help message."
+  echo
+  exit 0
+}
+
+function __add_plugin_help
+{
+  echo "neo4j-tools add-plugin: [-u URL, --url URL]"
+  echo "                        [-h, --help]"
+  echo
+  echo "  -u     Link to where the plugin exists."
+  echo "  -h     Show help message."
+  echo
+  exit 0
+}
+
+function __config_set_help
+{
+  echo "neo4j-tools config: [-s SETTING, --set SETTING]"
+  echo "                    [-h, --help]"
+  echo
+  echo "  -s     Option to set in neo4j config template."
+  echo "  -h     Show help message."
+  echo
+  exit 0
+}
+
+function log_debug
+{
+  local msg=$1
+  echo "$today  |  DEBUG - $msg" 2>&1
+}
+
+function log_info
+{
+  local msg=$1
+  echo "$today  |  INFO - $msg" 2>&1
+}
+
+function log_error
+{
+  local msg=$1
+  echo "$today  |  ERROR - $msg" 2>&1
+}
+
+function start_neo4j
+{
+  log_info "Starting Neo4j service..."
+
+  /bin/systemctl start neo4j.service 2>&1
+
+  # Loop waiting for neo4j service to start.
+  while true; do
+    if curl -s -I http://localhost:7474 | grep '200 OK'; then
+      log_info "Startup complete!"
+      break
+    fi
+
+    log_info "Waiting for Neo4j to come up..."
+    sleep 1
+  done
+}
+
+function stop_neo4j
+{
+  /bin/systemctl stop neo4j.service 2>&1
+
+  until [[ $(/bin/systemctl status neo4j | grep -i stopped) ]]; do
+    sleep 1
+    log_info "Stopping Neo4j service..."
+  done
+
+  log_info "Neo4j service stopped!"
+}
+
+function fail
+{
+  for file in $(ls $backup_dir/inconsistencies*); do
+    s3_move $file "inconsistency_reports"
+  done
+
+  start_neo4j
+  log_error "Backup script failed!"
+}
+
+function _consistency_check
+{
+  local dir=$1
+
+  log_info "Starting Neo4j consistency check..."
+
+  local consistency_command="/usr/bin/neo4j-admin check-consistency --database=$database --report-dir=$dir"
+
+  if [[ "$verbose" == "true" ]]; then
+    log_debug "Consistency check command: $consistency_command"
+  fi
+
+  eval $consistency_command 2>&1
+  log_info "Neo4j consistency check complete!"
+}
+
+function __backup
+{
+  local uuid=$(uuidgen)
+
+  log_info "Starting Neo4j Backup..."
+
+  # stopping the service
+  stop_neo4j
+
+  # perform a consistency check
+  _consistency_check $backup_dir
+
+  local backup_file="$backup_dir/neo4j_$uuid.dump"
+  local backup_command="neo4j-admin dump --to=$backup_file"
+
+  if [[ "$verbose" == "true" ]]; then
+    log_debug "Backup command: $backup_command"
+  fi
+
+  eval $backup_command 2>&1
+
+  s3_move $backup_file "backups"
+
+  log_info "Neo4j Backup Complete!"
+
+  # start the service
+  start_neo4j
+}
+
+function __restore
+{
+  log_info "Starting Neo4j Restore..."
+
+  # stopping the service
+  stop_neo4j
+
+  local restore_command="neo4j-admin load --from=$restore_dir --force"
+
+  if [[ "$verbose" == "true" ]]; then
+    log_debug "Restore command: $restore_command"
+  fi
+
+  eval $restore_command 2>&1
+
+  log_info "Neo4j Restore Complete!"
+
+  # start the service
+  start_neo4j
+}
+
+function data_sync_complete
+{
+  log_info "Waiting for Neo4j to complete data sync and become available..."
+
+  until [[ $(curl -s http://localhost:7474/db/manage/server/read-replica/available) ]]; do
+    sleep 30
+
+    if [[ "$verbose" == "true" ]]; then
+      log_debug "Waiting for Neo4j to complete data sync and become available..."
+    fi
+  done
+}
+
+function s3_move
+{
+  local file=$1
+  local dest=$2
+
+  log_info "Moving $file to S3"
+
+  local s3cmd="aws s3 mv $file s3://$s3_bucket/$dest/$(basename $file) --storage-class=$storage_class"
+
+  if [[ "$verbose" == "true" ]]; then
+    log_debug "S3 command: $s3cmd"
+  fi
+
+  eval $s3cmd
+}
+
+function add_plugin
+{
+  local plugin_url=$1
+
+  log_info "Installing plugin from $plugin_url"
+  wget $plugin_url -P /var/lib/neo4j/plugins
+  log_info "Successfully installed plugin!"
+}
+
+function set_config
+{
+  local _old=$1
+  local _new=$2
+  local _neo4j_home=/etc/neo4j
+
+  # Do an in-line replace of the setting
+  sed -i "s~$_old~$_new~g" $_neo4j_home/neo4j.conf
+}
+
+function __offline_backup
+{
+  shift
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      -s3 | --s3_bucket )
+        s3_bucket=$2
+        shift 2
+        ;;
+      -d | --directory )
+        backup_dir=$2
+        shift 2
+        ;;
+      -db | --database )
+        database=$2
+        shift 2
+        ;;
+      --storage-class )
+        storage_class=$2
+        shift 2
+        ;;
+      -v | --verbose )
+        verbose="true"
+        shift
+        ;;
+      -h | --help )
+        __backup_help
+        exit 0
+        ;;
+      * )
+        echo "Invalid option: $1" 2>&1
+        __backup_help
+        exit 1
+        ;;
+    esac
+  done
+
+  log_info "Preparing Neo4j Backup..."
+
+  # check if the var is set, defaults to "STANDARD"
+  if [[ -z "$storage_class" ]]; then
+    storage_class="STANDARD"
+  fi
+
+  if [[ "$verbose" == "true" ]]; then
+    log_debug "s3_bucket: $s3_bucket"
+    log_debug "backup_dir: $backup_dir"
+    log_debug "database: $database"
+    log_debug "s3_storage_class: $storage_class"
+  fi
+
+  data_sync_complete
+  __backup
+}
+
+function __offline_restore
+{
+  shift
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      -d | --directory )
+        restore_dir=$2
+        shift 2
+        ;;
+      -v | --verbose )
+        verbose="true"
+        shift
+        ;;
+      -h | --help )
+        __restore_help
+        exit 0
+        ;;
+      * )
+        echo "Invalid option: $1" 2>&1
+        __restore_help
+        exit 1
+        ;;
+    esac
+  done
+
+  log_info "Preparing Neo4j Restore..."
+
+  if [[ "$verbose" == "true" ]]; then
+    log_debug "restore_dir: $restore_dir"
+  fi
+
+  __restore
+}
+
+function __logger
+{
+  shift
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      -i | --info )
+        shift
+        log_info "$*"
+        exit 0
+        ;;
+      -d | --debug )
+        shift
+        log_debug "$*"
+        exit 0
+        ;;
+      -e | --error )
+        shift
+        log_error "$*"
+        exit 0
+        ;;
+      -h | --help )
+        __log_help
+        exit 0
+        ;;
+      * )
+        echo "Invalid option: $1" 2>&1
+        __log_help
+        exit 1
+        ;;
+    esac
+  done
+}
+
+function __add_plugin
+{
+  shift
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      -u | --url )
+        add_plugin $2
+        shift 2
+        ;;
+      -h | --help )
+        __add_plugin_help
+        exit 0
+        ;;
+      * )
+        echo "Invalid option: $1" 2>&1
+        __add_plugin_help
+        exit 1
+        ;;
+    esac
+  done
+}
+
+function __config_setting
+{
+  shift
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      -s | --set )
+        set_config $2 $3
+        shift 3
+        ;;
+      -h | --help )
+        __config_set_help
+        exit 0
+        ;;
+      * )
+        echo "Invalid option: $1" 2>&1
+        __config_set_help
+        exit 1
+        ;;
+    esac
+  done
+}
+
+trap "fail" ERR
+
+case $1 in
+  backup )
+    __offline_backup $@
+    ;;
+  restore )
+    __offline_restore $@
+    ;;
+  start )
+    start_neo4j
+    ;;
+  stop )
+    stop_neo4j
+    ;;
+  log )
+    __logger $@
+    ;;
+  add-plugin )
+    __add_plugin $@
+    ;;
+  config )
+    __config_setting $@
+    ;;
+  help )
+    __help
+    exit 0
+    ;;
+  * )
+    echo "Invalid option: $1" 2>&1
+    __help
+    exit 1
+    ;;
+esac
