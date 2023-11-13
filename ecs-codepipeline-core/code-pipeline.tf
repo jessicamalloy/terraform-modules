@@ -28,7 +28,7 @@ resource "aws_codepipeline" "codepipeline" {
     action {
       name             = "Source"
       category         = "Source"
-      owner            = "AWS"
+      owner            = "ThirdParty"
       provider         = "GitHub"
       version          = "1"
       output_artifacts = ["source_output"]
