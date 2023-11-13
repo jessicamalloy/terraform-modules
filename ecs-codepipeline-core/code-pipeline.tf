@@ -28,7 +28,7 @@ resource "aws_codepipeline" "codepipeline" {
     action {
       name             = "Source"
       category         = "Source"
-      owner            = "ThirdParty"
+      owner            = "AWS"
       provider         = "GitHub"
       version          = "1"
       output_artifacts = ["source_output"]
@@ -38,6 +38,7 @@ resource "aws_codepipeline" "codepipeline" {
         Repo       = var.github_repo
         Branch     = var.github_branch
         OAuthToken = var.github_oauth_token
+        PollForSourceChanges = false
       }
     }
   }
