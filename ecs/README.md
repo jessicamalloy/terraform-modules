@@ -87,7 +87,3 @@ The ACM certificate created for this service will require a one-time validation.
 | project_managed_policy_arns | list | [] | (Optional) Used to add additional policy arns to ECS task role. |
 | project_ingress_with_cidr_blocks | list | [] | (Optional) Used to add additional ingress rules for ECS task security group. |
 | region | string | `N/A` | (Mandatory) AWS region where secret will be stored. |
-| certificate_authority_arn | string | `N/A` | (Conditional) arn of customer-managed certificate authority. If empty, uses DNS validation. Required if | use_certificate_authority | bool | true | (Optional) whether to use certificate authority (default true). If true, certificate_authority_arn MUST also be provided. |
- is true |
-| use_certificate_authority | bool | true | (Optional) whether to use certificate authority (default true). If true, certificate_authority_arn MUST also be provided. |
-| subject_alternative_names | list(string) | `N/A` | (Optional) Set of domains that should be SANs in the issued certificate. To remove all elements of a previously configured list, set this value equal to an empty list ([]) |

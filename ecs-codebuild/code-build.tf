@@ -22,17 +22,6 @@ resource "aws_codebuild_project" "project_codebuild" {
   build_timeout = var.build_timeout
   service_role  = aws_iam_role.codebuild_service_role.arn
 
-  dynamic "vpc_config" {
-    // trick to conditionally set this argument
-    for_each = var.vpc_config == null ? [] : [1]
-
-    content {
-      security_group_ids = var.vpc_config["security_group_ids"]
-      subnets            = var.vpc_config["subnets"]
-      vpc_id             = var.vpc_config["vpc_id"]
-    }
-  }
-
   artifacts {
     type = "CODEPIPELINE"
   }

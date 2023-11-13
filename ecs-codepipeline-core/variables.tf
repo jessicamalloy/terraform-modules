@@ -12,6 +12,12 @@ variable "buildspec" {
   type        = string
 }
 
+variable "github_oauth_token" {
+  description = "OAuth token allowing access to repository."
+  type        = string
+  sensitive   = true
+}
+
 variable "github_owner" {
   description = "GitHub repo owner."
   type        = string
@@ -110,25 +116,4 @@ variable "s3_bucket_resources" {
   description = "List of additional s3 bucket resources that codebuild needs access to."
   type        = list(string)
   default     = []
-}
-
-variable "vpc_config" {
-  description = <<EOF
-    (Optional) provide VPC configuration to run the codebuild project(s) inside a VPC. 
-    Often need to reach endpoints (such as DBs) that are inside a private subnet. 
-    It's strongly recommended to run the project inside a private subnet as well. 
-    The subnet must have egress to the internet, however. The SG can usually deny all ingress. 
-    If null (default), project will be outside of VPC
-  EOF
-  type = object({
-    security_group_ids = list(string)
-    subnets            = list(string)
-    vpc_id             = string
-  })
-  default = null
-}
-
-variable "codestar_connection_arn" {
-  description = "GitHub codestar_connection_arn."
-  type        = string
 }

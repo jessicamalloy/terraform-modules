@@ -1,5 +1,5 @@
 module "code_build" {
-  source                = "../ecs-codebuild"
+  source                = "..//ecs-codebuild"
   project_name          = var.project_name
   aws_account_id        = var.aws_account_id
   region                = var.region
@@ -11,7 +11,6 @@ module "code_build" {
   build_timeout         = var.build_timeout
   environment_variables = var.environment_variables
   s3_bucket_resources   = var.s3_bucket_resources
-  vpc_config            = var.vpc_config
 }
 
 resource "aws_codepipeline" "codepipeline" {
@@ -28,16 +27,17 @@ resource "aws_codepipeline" "codepipeline" {
 
     action {
       name             = "Source"
-      category         = "Source"      
-      owner            = "AWS"
-      provider         = "CodeStarSourceConnection"
+      category         = "Source"
+      owner            = "ThirdParty"
+      provider         = "GitHub"
       version          = "1"
       output_artifacts = ["source_output"]
 
-      configuration = {        
-        ConnectionArn = var.codestar_connection_arn
-        FullRepositoryId = var.github_repo
-        BranchName       = var.github_branch
+      configuration = {
+        Owner      = var.github_owner
+        Repo       = var.github_repo
+        Branch     = var.github_branch
+        OAuthToken = var.github_oauth_token
       }
     }
   }

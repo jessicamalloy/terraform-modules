@@ -21,7 +21,3 @@ output "lb_arn_suffix" {
 output "lb_tg_arn_suffix" {
     value = aws_lb_target_group.lb_target_group.arn_suffix
 }
-
-output "additional_task_def_arn" {
-    value = aws_ecs_task_definition.additional_task_def[0].arn
-}

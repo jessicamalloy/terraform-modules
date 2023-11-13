@@ -6,14 +6,6 @@ output "id" {
     value = aws_vpc.vpc.id
 }
 
-output "cidr_block" {
-  value = var.cidr_block
-}
-
-output "main_route_table_id" {
-  value = aws_vpc.vpc.main_route_table_id
-}
-
 /*
  * Captures the final list of public subnets.
  */
