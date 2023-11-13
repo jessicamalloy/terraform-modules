@@ -12,6 +12,7 @@ module "codepipeline" {
   region              = var.region
   ecs_cluster         = var.ecs_cluster
   ecs_service         = var.ecs_service
+  github_owner        = var.github_owner
   github_oauth_token  = var.github_oauth_token
   github_repo         = var.github_repo
   github_branch       = var.github_branch
