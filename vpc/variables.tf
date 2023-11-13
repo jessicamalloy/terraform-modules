@@ -18,3 +18,15 @@ variable "number_of_azs" {
   type        = number
   default     = 3
 }
+
+variable "create_private_eip" {
+  description = "Whether or not to add an elastic IP to the nat gateway for private subnets"
+  type        = bool
+  default     = true
+}
+
+variable "cidr_block" {
+  description = "(Optional) Specific CIDR block to use for VPC. Defaults to 10.0.0.0/16"
+  type        = string
+  default     = "10.0.0.0/16"
+}

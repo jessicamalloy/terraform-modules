@@ -1,4 +1,6 @@
 data "template_file" "buildspec" {
+  count = var.project_build_spec ? 0 : 1
+
   template = var.verification_stage ? file(local.buildspec_verification) : file(local.buildspec)
   vars = {
     extra_install_steps = length(var.extra_buildspec_install_steps) > 0 ? indent(6, chomp(yamlencode(var.extra_buildspec_install_steps))) : ""
@@ -6,23 +8,24 @@ data "template_file" "buildspec" {
 }
 
 module "codepipeline" {
-  source              = "github.com/jessicamalloy/terraform-modules/ecs-codepipeline-core"
+  source              = "../ecs-codepipeline-core"
   project_name        = var.project_name
   aws_account_id      = var.aws_account_id
   region              = var.region
   ecs_cluster         = var.ecs_cluster
-  ecs_service         = var.ecs_service
+  ecs_service         = var.ecs_service  
   github_owner        = var.github_owner
-  github_oauth_token  = var.github_oauth_token
   github_repo         = var.github_repo
   github_branch       = var.github_branch
+  codestar_connection_arn = var.codestar_connection_arn
   github_access_token = var.github_access_token
   github_username     = var.github_username
   docker_username     = var.docker_username
   docker_login_token  = var.docker_login_token
   build_timeout       = var.build_timeout
-  buildspec           = data.template_file.buildspec.rendered
+  buildspec           = var.project_build_spec ? null : data.template_file.buildspec[0].rendered
   build_env_image     = var.build_env_image
+  vpc_config          = var.vpc_config
   environment_variables = concat([
     {
       name  = "PROJECT_DIRECTORY"

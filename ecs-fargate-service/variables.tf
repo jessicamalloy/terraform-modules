@@ -80,6 +80,7 @@ variable "environment_vars" {
   type = list(object({
     name  = string
     value = string
+    type = string
   }))
   default = []
 }

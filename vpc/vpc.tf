@@ -8,8 +8,8 @@ data "aws_availability_zones" "available" {
 }
 
 resource "aws_vpc" "vpc" {
-  cidr_block = "10.0.0.0/16"
-  enable_dns_support = true
+  cidr_block           = var.cidr_block
+  enable_dns_support   = true
   enable_dns_hostnames = true
 
   tags = {
@@ -99,8 +99,8 @@ resource "aws_subnet" "private_subnet_c" {
 }
 
 resource "aws_eip" "private_a" {
-  count = local.build_private_a
-  vpc      = true
+  count      = local.build_elastic_a
+  vpc        = true
   depends_on = [aws_internet_gateway.gw]
 
   tags = {
@@ -110,8 +110,8 @@ resource "aws_eip" "private_a" {
 }
 
 resource "aws_eip" "private_b" {
-  count = local.build_private_b
-  vpc      = true
+  count      = local.build_elastic_b
+  vpc        = true
   depends_on = [aws_internet_gateway.gw]
 
   tags = {
@@ -121,8 +121,8 @@ resource "aws_eip" "private_b" {
 }
 
 resource "aws_eip" "private_c" {
-  count = local.build_private_c
-  vpc      = true
+  count      = local.build_elastic_c
+  vpc        = true
   depends_on = [aws_internet_gateway.gw]
 
   tags = {
@@ -132,10 +132,10 @@ resource "aws_eip" "private_c" {
 }
 
 resource "aws_nat_gateway" "nat_gateway_a" {
-  count = local.build_private_a
-  allocation_id = aws_eip.private_a[count.index].id
-  subnet_id     = aws_subnet.private_subnet_a[count.index].id
-  depends_on = [aws_internet_gateway.gw]
+  count         = local.build_private_a
+  allocation_id = var.create_private_eip ? aws_eip.private_a[count.index].id : null
+  subnet_id     = aws_subnet.public_subnet_a.id
+  depends_on    = [aws_internet_gateway.gw]
 
   tags = {
     Name = "${var.project_name}-nat-a"
@@ -144,10 +144,10 @@ resource "aws_nat_gateway" "nat_gateway_a" {
 }
 
 resource "aws_nat_gateway" "nat_gateway_b" {
-  count = local.build_private_b
-  allocation_id = aws_eip.private_b[count.index].id
-  subnet_id     = aws_subnet.private_subnet_b[count.index].id
-  depends_on = [aws_internet_gateway.gw]
+  count         = local.build_private_b
+  allocation_id = var.create_private_eip ? aws_eip.private_b[count.index].id : null
+  subnet_id     = aws_subnet.public_subnet_b[count.index].id
+  depends_on    = [aws_internet_gateway.gw]
 
   tags = {
     Name = "${var.project_name}-nat-b"
@@ -156,10 +156,10 @@ resource "aws_nat_gateway" "nat_gateway_b" {
 }
 
 resource "aws_nat_gateway" "nat_gateway_c" {
-  count = local.build_private_c
-  allocation_id = aws_eip.private_c[count.index].id
-  subnet_id     = aws_subnet.private_subnet_c[count.index].id
-  depends_on = [aws_internet_gateway.gw]
+  count         = local.build_private_c
+  allocation_id = var.create_private_eip ? aws_eip.private_c[count.index].id : null
+  subnet_id     = aws_subnet.public_subnet_c[count.index].id
+  depends_on    = [aws_internet_gateway.gw]
 
   tags = {
     Name = "${var.project_name}-nat-c"
@@ -287,4 +287,24 @@ resource "aws_network_acl" "network_acl" {
     Name = "${var.project_name}-nacl"
     ProjectName = var.project_name
   }
+}
+
+# VPC id added in Parameter Store to be consumed by Tasks if needed
+
+resource "aws_ssm_parameter" "ecs_service_vpc_id" {
+  name  = "/${var.project_name}/ecs_service_vpc_id"
+  type  = "String"
+  value = aws_vpc.vpc.id
+}
+
+resource "aws_ssm_parameter" "ecs_service_public_subnet_ids" {
+  name  = "/${var.project_name}/ecs_service_public_subnet_ids"
+  type  = "String"
+  value = join(", ", local.public_subnets) 
+}
+
+resource "aws_ssm_parameter" "ecs_service_private_subnet_ids" {
+  name  = "/${var.project_name}/ecs_service_private_subnet_ids"
+  type  = "String"
+  value = join(", ", local.private_subnets) 
 }

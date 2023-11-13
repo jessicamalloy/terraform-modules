@@ -116,6 +116,7 @@ runcmd:
   - /usr/local/bin/neo4j-tools config --set "#dbms.memory.heap.initial_size=512m" "dbms.memory.heap.initial_size=5g" | tee -a $LOGFILE
   - /usr/local/bin/neo4j-tools config --set "#dbms.memory.heap.max_size=512m" "dbms.memory.heap.max_size=5g" | tee -a $LOGFILE
   - /usr/local/bin/neo4j-tools config --set "#dbms.memory.pagecache.size=10g" "dbms.memory.pagecache.size=7g" | tee -a $LOGFILE
+  - /usr/local/bin/neo4j-tools config --set "#dbms.memory.transaction.max_size=16m" "dbms.memory.transaction.max_size=64m" | tee -a $LOGFILE
 
   # Get public/private IP to add to config
   - publicIP=$(hostname -i | awk '{print $NF}')

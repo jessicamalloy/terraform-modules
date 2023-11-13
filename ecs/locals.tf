@@ -27,4 +27,6 @@ locals {
       ? concat(local.ecs_default_ingress, local.ingress_on_application_port)
       : local.ecs_default_ingress
     )
+  // allow for easier checks on this optional variable, ex: local.hosted_zone_names > 0 ? do something : do something else
+  hosted_zone_names = var.hosted_zone_names == null ? [] : var.hosted_zone_names
 }

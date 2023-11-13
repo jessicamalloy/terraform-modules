@@ -15,7 +15,7 @@ resource "aws_lb_target_group" "lb_target_group" {
     protocol            = "HTTP"
     timeout             = "5"
   }
-  
+
   tags = {
     name        = "${var.project_name}-lb-tg"
     ProjectName = var.project_name
@@ -41,7 +41,7 @@ resource "aws_lb_listener" "lb_listener" {
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-2016-08"
   certificate_arn   = aws_acm_certificate.cert.arn
-  
+
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.lb_target_group.arn

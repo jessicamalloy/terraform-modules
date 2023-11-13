@@ -55,6 +55,21 @@ resource "aws_iam_role" "ecs-task-role" {
   assume_role_policy  = data.aws_iam_policy_document.ecs-task-assume-role-policy.json
   managed_policy_arns = concat(
     [ "arn:aws:iam::aws:policy/SecretsManagerReadWrite",
+      "arn:aws:iam::aws:policy/AmazonSSMReadOnlyAccess",
+      aws_iam_policy.ecs-task-log-policy.arn,
+      aws_iam_policy.ecs-task-image-policy.arn
+    ],
+    var.project_managed_policy_arns
+  )
+}
+
+resource "aws_iam_role" "ecs-task-execution-role" {
+  name                = "${var.project_name}-ecs-task-execution-role"
+  path = "/"
+  assume_role_policy  = data.aws_iam_policy_document.ecs-task-assume-role-policy.json
+  managed_policy_arns = concat(
+    [ "arn:aws:iam::aws:policy/SecretsManagerReadWrite",
+      "arn:aws:iam::aws:policy/AmazonSSMReadOnlyAccess",
       aws_iam_policy.ecs-task-log-policy.arn,
       aws_iam_policy.ecs-task-image-policy.arn
     ],

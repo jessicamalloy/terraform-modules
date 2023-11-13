@@ -7,9 +7,13 @@ resource "aws_s3_bucket" "lambdas_bucket" {
   }
 }
 
-resource "aws_s3_bucket_acl" "lambdas_bucket_acl" {
+resource "aws_s3_bucket_public_access_block" "lambdas_bucket_restrict_public_access" {
   bucket = aws_s3_bucket.lambdas_bucket.id
-  acl    = "private"
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
 }
 
 data "archive_file" "dummy_lambda" {

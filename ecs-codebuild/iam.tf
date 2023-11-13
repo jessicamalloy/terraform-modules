@@ -68,7 +68,8 @@ resource "aws_iam_role_policy" "codebuild_service_policy" {
     {
       "Effect": "Allow",
       "Action": [
-        "ssm:GetParameters"
+        "ssm:GetParameters",
+        "ssm:GetParametersByPath"
       ],
       "Resource": [
         "*"
@@ -82,6 +83,20 @@ resource "aws_iam_role_policy" "codebuild_service_policy" {
       "Resource": [
         "*"
       ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "ec2:CreateNetworkInterface",
+        "ec2:DescribeDhcpOptions",
+        "ec2:DescribeNetworkInterfaces",
+        "ec2:DeleteNetworkInterface",
+        "ec2:DescribeSubnets",
+        "ec2:DescribeSecurityGroups",
+        "ec2:DescribeVpcs",
+        "ec2:CreateNetworkInterfacePermission"
+      ],
+      "Resource": "*"
     }
   ]
 }

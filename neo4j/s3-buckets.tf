@@ -24,7 +24,11 @@ resource "aws_s3_bucket_lifecycle_configuration" "backup_bucket_expiration_rule"
   }
 }
 
-resource "aws_s3_bucket_acl" "backup_bucket_acl" {
+resource "aws_s3_bucket_public_access_block" "backup_bucket_restrict_public_access" {
   bucket = aws_s3_bucket.backup_bucket.id
-  acl    = "private"
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
 }

@@ -30,7 +30,7 @@ variable "project_name" {
   default     = "dats"
 }
 module "bers_vps" {
-    source       = "github.com/jessicamalloy/terraform-modules/vpc"
+    source       = "github.com/AllenInstitute/platform-terraform-modules/vpc"
     project_name = var.project_name
 }
 ```
@@ -39,7 +39,7 @@ module "bers_vps" {
  * Creates new Neo4j EC2 instance
  */
 module "bers_neo4j" {
-  source = "github.com/jessicamalloy/terraform-modules/neo4j"
+  source = "github.com/AllenInstitute/platform-terraform-modules/neo4j"
   project_name       = var.project_name
   domain_name        = var.domain_name
   vpc_id             = module.bers_vpc.id
