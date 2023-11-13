@@ -6,6 +6,7 @@ module "secrets_manager" {
   enable_rotation                 = true
   lambda_rotation_arn             = data.aws_lambda_function.rotation_lambda.arn
   rotate_automatically_after_days = var.password_rotation_interval
+  recovery_window_in_days = 0
 
   tags = {
     Name           = "${var.project_name}-pg-db-secret"
